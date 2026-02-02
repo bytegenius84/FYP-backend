@@ -4,89 +4,82 @@ import numpy as np
 import pandas as pd
 import json
 import os
-import sys
 
 # -------------------------------
-# CONFIG
+# PATHS (Railway-safe)
 # -------------------------------
-MODEL_PATH = "models/nutrifoodnet_final.h5"
-CLASS_LABELS_PATH = "models/class_labels.json"
-NUTRITION_CSV = "data/nutrition.csv"
-IMAGE_SIZE = (299, 299)  # Model input size
-DEFAULT_WEIGHT = 100      # grams
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+MODEL_PATH = os.path.join(BASE_DIR, "models", "nutrifoodnet_final.h5")
+CLASS_LABELS_PATH = os.path.join(BASE_DIR, "models", "class_labels.json")
+NUTRITION_CSV = os.path.join(BASE_DIR, "data", "nutrition.csv")
+
+IMAGE_SIZE = (299, 299)
 
 # -------------------------------
-# CHECK FILES EXIST
+# GLOBALS (lazy loaded)
 # -------------------------------
-for path in [MODEL_PATH, CLASS_LABELS_PATH, NUTRITION_CSV]:
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"File not found: {path}")
+model = None
+class_labels = None
+nutrition_df = None
+numeric_cols = ["weight","calories","protein","carbohydrates","fats","fiber","sugars","sodium"]
 
 # -------------------------------
-# LOAD MODEL
+# LOADERS
 # -------------------------------
-print("Loading model...")
-model = tf.keras.models.load_model(MODEL_PATH)
-print("Model loaded successfully.")
+def load_model_once():
+    global model
+    if model is None:
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
+        print("Loading ML model...")
+        model = tf.keras.models.load_model(MODEL_PATH)
+        print("MODEL LOADED")
 
-# -------------------------------
-# LOAD CLASS LABELS
-# -------------------------------
-with open(CLASS_LABELS_PATH, "r") as f:
-    class_labels = json.load(f)
+def load_class_labels_once():
+    global class_labels
+    if class_labels is None:
+        with open(CLASS_LABELS_PATH, "r") as f:
+            class_labels = json.load(f)
 
-# -------------------------------
-# LOAD NUTRITION DATA
-# -------------------------------
-nutrition_df = pd.read_csv(NUTRITION_CSV)
-numeric_cols = ["weight", "calories", "protein", "carbohydrates", "fats", "fiber", "sugars", "sodium"]
-nutrition_df[numeric_cols] = nutrition_df[numeric_cols].astype(float)
+def load_nutrition_once():
+    global nutrition_df
+    if nutrition_df is None:
+        nutrition_df = pd.read_csv(NUTRITION_CSV)
+        nutrition_df[numeric_cols] = nutrition_df[numeric_cols].astype(float)
 
 # -------------------------------
 # PREDICTION FUNCTION
 # -------------------------------
-def predict_nutrients(img_path, target_weight=DEFAULT_WEIGHT):
-    if not os.path.exists(img_path):
-        print(f"Image not found: {img_path}")
-        return
+def predict_nutrients(img_path, target_weight=100):
+    load_model_once()
+    load_class_labels_once()
+    load_nutrition_once()
 
-    # Load and preprocess image
     img = image.load_img(img_path, target_size=IMAGE_SIZE)
     x = image.img_to_array(img)
-    x = np.expand_dims(x, axis=0)
-    x = x / 255.0
+    x = np.expand_dims(x, axis=0) / 255.0
 
-    # Predict
     pred = model.predict(x)
-    pred_class_idx = np.argmax(pred)
-    confidence = pred[0][pred_class_idx]
-    food_name = class_labels.get(str(pred_class_idx), "Unknown")
+    pred_class_idx = int(np.argmax(pred))
+    confidence = float(pred[0][pred_class_idx])
 
-    print(f"\nPredicted food: {food_name}, Confidence: {confidence:.2f}")
+    food_name = class_labels[str(pred_class_idx)]
 
-    # Find closest weight in nutrition CSV
     food_rows = nutrition_df[nutrition_df["label"] == food_name]
     if food_rows.empty:
-        print("Nutrition info not found for this food.")
-        return
+        return {"error": "Nutrition info not found"}
 
+    food_rows = food_rows.reset_index(drop=True)
     closest_row = food_rows.iloc[(food_rows['weight'] - target_weight).abs().argsort()[0]]
 
-    print("\nNutrition info (closest weight):")
+    result = {
+        "label": food_name,
+        "confidence": round(confidence, 4),
+    }
+
     for col in closest_row.index:
-        if col in numeric_cols:
-            print(f"{col}: {closest_row[col]:.2f}")
-        else:
-            print(f"{col}: {closest_row[col]}")
+        result[col] = float(closest_row[col]) if col in numeric_cols else closest_row[col]
 
-# -------------------------------
-# CLI EXECUTION
-# -------------------------------
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python predict_nutrient.py <image_path> [target_weight_in_grams]")
-        sys.exit(1)
+    return result
 
-    img_path = sys.argv[1]
-    target_weight = float(sys.argv[2]) if len(sys.argv) >= 3 else DEFAULT_WEIGHT
-    predict_nutrients(img_path, target_weight)
