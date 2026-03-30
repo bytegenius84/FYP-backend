@@ -270,21 +270,46 @@ app.add_middleware(
 )
 
 # -----------------------------
-# 🔥 HuggingFace FREE API
+# HF CONFIG
 # -----------------------------
-HF_TOKEN = "PASTE_YOUR_HF_TOKEN_HERE"
-HF_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+HF_TOKEN = "PASTE_YOUR_TOKEN_HERE"
+
+# Primary (DeepSeek)
+HF_URL_PRIMARY = "https://router.huggingface.co/hf-inference/models/deepseek-ai/DeepSeek-V3"
+
+# Fallback (Mistral)
+HF_URL_FALLBACK = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct"
 
 
 # -----------------------------
-# AI Recommendation Function
+# AI FUNCTION
 # -----------------------------
+def call_model(url, payload, headers):
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        data = response.json()
+
+        if isinstance(data, list) and "generated_text" in data[0]:
+            return data[0]["generated_text"]
+
+        if isinstance(data, list):
+            return str(data[0])
+
+        if isinstance(data, dict):
+            if "error" in data:
+                return None
+            return str(data)
+
+    except:
+        return None
+
+
 def generate_ai_recommendation(nutrition, goal, disease, age, gender):
 
     prompt = f"""
 You are a professional nutrition expert.
 
-User Info:
+User:
 Age: {age}
 Gender: {gender}
 Goal: {goal}
@@ -299,7 +324,7 @@ Fiber: {nutrition['fiber']}
 Sugar: {nutrition['sugars']}
 Sodium: {nutrition['sodium']}
 
-Give simple advice in 4-5 lines.
+Give clear diet advice in 5 lines.
 """
 
     headers = {
@@ -307,36 +332,31 @@ Give simple advice in 4-5 lines.
     }
 
     payload = {
-        "inputs": prompt
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 200
+        }
     }
 
-    # Retry (important for HF free API)
-    for _ in range(3):
-        try:
-            response = requests.post(HF_URL, headers=headers, json=payload, timeout=20)
-            data = response.json()
+    # Try DeepSeek first
+    for _ in range(2):
+        result = call_model(HF_URL_PRIMARY, payload, headers)
+        if result:
+            return result
+        time.sleep(2)
 
-            # Normal response
-            if isinstance(data, list) and "generated_text" in data[0]:
-                return data[0]["generated_text"]
+    # Fallback → Mistral
+    for _ in range(2):
+        result = call_model(HF_URL_FALLBACK, payload, headers)
+        if result:
+            return result
+        time.sleep(2)
 
-            # Sometimes different format
-            if isinstance(data, list):
-                return str(data[0])
-
-            if isinstance(data, dict):
-                if "error" in data:
-                    return f"AI Error: {data['error']}"
-                return str(data)
-
-        except Exception as e:
-            time.sleep(2)
-
-    return "AI unavailable, try again."
+    return "AI not responding, try again."
 
 
 # -----------------------------
-# Predict Endpoint
+# Predict
 # -----------------------------
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), weight: float = Form(...)):
@@ -355,7 +375,7 @@ async def predict(file: UploadFile = File(...), weight: float = Form(...)):
 
 
 # -----------------------------
-# Recommendation Endpoint
+# Recommend
 # -----------------------------
 @app.post("/recommend")
 async def recommend(
@@ -397,8 +417,6 @@ async def recommend(
     }
 
 
-# -----------------------------
-# Health Check
 # -----------------------------
 @app.get("/")
 def home():
