@@ -272,7 +272,7 @@ app.add_middleware(
 # -----------------------------
 # HF CONFIG
 # -----------------------------
-HF_TOKEN = "PASTE_YOUR_TOKEN_HERE"
+HF_TOKEN = "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"
 
 # Primary (DeepSeek)
 HF_URL_PRIMARY = "https://router.huggingface.co/hf-inference/models/deepseek-ai/DeepSeek-V3"
