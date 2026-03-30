@@ -243,7 +243,6 @@
 #     uvicorn.run("main:app", host="0.0.0.0", port=port)
 
 
-
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from predict_nutrient import predict_nutrients
@@ -255,7 +254,7 @@ import time
 app = FastAPI()
 
 # -----------------------------
-# Model load
+# Load Model
 # -----------------------------
 download_model()
 
@@ -271,14 +270,14 @@ app.add_middleware(
 )
 
 # -----------------------------
-# FREE HF CONFIG
+# 🔥 HuggingFace FREE API
 # -----------------------------
-HF_TOKEN = "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"
+HF_TOKEN = "PASTE_YOUR_HF_TOKEN_HERE"
 HF_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 
 
 # -----------------------------
-# AI FUNCTION (ROBUST)
+# AI Recommendation Function
 # -----------------------------
 def generate_ai_recommendation(nutrition, goal, disease, age, gender):
 
@@ -300,7 +299,7 @@ Fiber: {nutrition['fiber']}
 Sugar: {nutrition['sugars']}
 Sodium: {nutrition['sodium']}
 
-Give simple diet advice in 5-6 lines.
+Give simple advice in 4-5 lines.
 """
 
     headers = {
@@ -311,33 +310,33 @@ Give simple diet advice in 5-6 lines.
         "inputs": prompt
     }
 
-    # ---------------- retry logic (VERY IMPORTANT)
-    for i in range(3):
-        response = requests.post(HF_URL, headers=headers, json=payload)
-
+    # Retry (important for HF free API)
+    for _ in range(3):
         try:
+            response = requests.post(HF_URL, headers=headers, json=payload, timeout=20)
             data = response.json()
 
-            # Case 1: normal HF output
+            # Normal response
             if isinstance(data, list) and "generated_text" in data[0]:
                 return data[0]["generated_text"]
 
-            # Case 2: sometimes direct text
+            # Sometimes different format
             if isinstance(data, list):
                 return str(data[0])
 
-            # Case 3: error message
             if isinstance(data, dict):
-                return data.get("error", str(data))
+                if "error" in data:
+                    return f"AI Error: {data['error']}"
+                return str(data)
 
-        except:
+        except Exception as e:
             time.sleep(2)
 
-    return "AI temporarily unavailable. Please try again."
+    return "AI unavailable, try again."
 
 
 # -----------------------------
-# PREDICT ENDPOINT
+# Predict Endpoint
 # -----------------------------
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), weight: float = Form(...)):
@@ -356,7 +355,7 @@ async def predict(file: UploadFile = File(...), weight: float = Form(...)):
 
 
 # -----------------------------
-# RECOMMEND ENDPOINT
+# Recommendation Endpoint
 # -----------------------------
 @app.post("/recommend")
 async def recommend(
@@ -399,7 +398,7 @@ async def recommend(
 
 
 # -----------------------------
-# HEALTH CHECK
+# Health Check
 # -----------------------------
 @app.get("/")
 def home():
