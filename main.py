@@ -250,6 +250,7 @@ from predict_nutrient import predict_nutrients
 from download_model import download_model
 import os
 import requests
+import time
 
 app = FastAPI()
 
@@ -270,16 +271,21 @@ app.add_middleware(
 )
 
 # -----------------------------
-# 🔥 FREE AI (HuggingFace)
+# FREE HF CONFIG
 # -----------------------------
-HF_TOKEN = "PASTE_YOUR_HF_TOKEN_HERE"
+HF_TOKEN = "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"
+HF_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 
+
+# -----------------------------
+# AI FUNCTION (ROBUST)
+# -----------------------------
 def generate_ai_recommendation(nutrition, goal, disease, age, gender):
 
     prompt = f"""
-You are a professional nutritionist AI.
+You are a professional nutrition expert.
 
-User:
+User Info:
 Age: {age}
 Gender: {gender}
 Goal: {goal}
@@ -288,36 +294,50 @@ Disease: {disease}
 Nutrition:
 Calories: {nutrition['calories']}
 Protein: {nutrition['protein']}
-Carbohydrates: {nutrition['carbohydrates']}
+Carbs: {nutrition['carbohydrates']}
 Fats: {nutrition['fats']}
 Fiber: {nutrition['fiber']}
-Sugars: {nutrition['sugars']}
+Sugar: {nutrition['sugars']}
 Sodium: {nutrition['sodium']}
 
-Give:
-1. Health verdict
-2. Reason
-3. 3 suggestions
+Give simple diet advice in 5-6 lines.
 """
 
-    response = requests.post(
-        "https://api-inference.huggingface.co/models/google/flan-t5-base",
-        headers={
-            "Authorization": f"Bearer {HF_TOKEN}"
-        },
-        json={
-            "inputs": prompt
-        }
-    )
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}"
+    }
 
-    try:
-        return response.json()[0]["generated_text"]
-    except:
-        return "AI is loading or unavailable. Try again."
+    payload = {
+        "inputs": prompt
+    }
+
+    # ---------------- retry logic (VERY IMPORTANT)
+    for i in range(3):
+        response = requests.post(HF_URL, headers=headers, json=payload)
+
+        try:
+            data = response.json()
+
+            # Case 1: normal HF output
+            if isinstance(data, list) and "generated_text" in data[0]:
+                return data[0]["generated_text"]
+
+            # Case 2: sometimes direct text
+            if isinstance(data, list):
+                return str(data[0])
+
+            # Case 3: error message
+            if isinstance(data, dict):
+                return data.get("error", str(data))
+
+        except:
+            time.sleep(2)
+
+    return "AI temporarily unavailable. Please try again."
 
 
 # -----------------------------
-# Predict endpoint
+# PREDICT ENDPOINT
 # -----------------------------
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), weight: float = Form(...)):
@@ -336,7 +356,7 @@ async def predict(file: UploadFile = File(...), weight: float = Form(...)):
 
 
 # -----------------------------
-# Recommend endpoint
+# RECOMMEND ENDPOINT
 # -----------------------------
 @app.post("/recommend")
 async def recommend(
@@ -348,45 +368,38 @@ async def recommend(
     sugars: float = Form(...),
     sodium: float = Form(...),
 
-    age: int = Form(...),
-    gender: str = Form(...),
-    goal: str = Form(...),
+    age: int = Form(0),
+    gender: str = Form("unknown"),
+    goal: str = Form("maintain"),
     disease: str = Form("")
 ):
-    try:
 
-        nutrition = {
-            "calories": calories,
-            "protein": protein,
-            "carbohydrates": carbohydrates,
-            "fats": fats,
-            "fiber": fiber,
-            "sugars": sugars,
-            "sodium": sodium
-        }
+    nutrition = {
+        "calories": calories,
+        "protein": protein,
+        "carbohydrates": carbohydrates,
+        "fats": fats,
+        "fiber": fiber,
+        "sugars": sugars,
+        "sodium": sodium
+    }
 
-        ai_response = generate_ai_recommendation(
-            nutrition,
-            goal,
-            disease,
-            age,
-            gender
-        )
+    ai_response = generate_ai_recommendation(
+        nutrition,
+        goal,
+        disease,
+        age,
+        gender
+    )
 
-        return {
-            "recommendations": [ai_response],
-            "status": "success"
-        }
-
-    except Exception as e:
-        return {
-            "error": str(e),
-            "status": "failed"
-        }
+    return {
+        "recommendations": [ai_response],
+        "status": "success"
+    }
 
 
 # -----------------------------
-# Health check
+# HEALTH CHECK
 # -----------------------------
 @app.get("/")
 def home():
