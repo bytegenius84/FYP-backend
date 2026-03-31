@@ -1,423 +1,191 @@
-# # from fastapi import FastAPI, UploadFile, File, Form
-# # from fastapi.middleware.cors import CORSMiddleware
-# # from predict_nutrient import predict_nutrients
-# # from download_model import download_model
-# # import os
+import React, { useState } from "react";
+import axios from "axios";
 
-# # app = FastAPI()
+const BACKEND_URL = "https://your-backend-url.up.railway.app"; // 🔥 CHANGE THIS
 
-# # # Ensure model is downloaded
-# # download_model()
+function App() {
+  const [file, setFile] = useState(null);
+  const [weight, setWeight] = useState(100);
 
-# # # Enable CORS
-# # app.add_middleware(
-# #     CORSMiddleware,
-# #     allow_origins=["*"],  # In production, replace with your frontend URL
-# #     allow_credentials=True,
-# #     allow_methods=["*"],
-# #     allow_headers=["*"],
-# # )
+  const [nutrition, setNutrition] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-# # # -----------------------------
-# # # Recommendation Logic
-# # # -----------------------------
-# # def generate_recommendation(nutrition, goal, disease):
-# #     recommendations = []
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("");
+  const [goal, setGoal] = useState("maintain");
+  const [disease, setDisease] = useState("");
 
-# #     calories = nutrition.get("calories", 0)
-# #     sugar = nutrition.get("sugars", 0)
-# #     sodium = nutrition.get("sodium", 0)
-# #     fats = nutrition.get("fats", 0)
+  const [recommendation, setRecommendation] = useState("");
 
-# #     # Goal-based
-# #     if goal == "weight_loss":
-# #         if calories > 400:
-# #             recommendations.append("High calories – reduce portion size.")
-# #         if fats > 20:
-# #             recommendations.append("High fat – avoid frequent consumption.")
-# #         recommendations.append("Prefer boiled, grilled or low-oil foods.")
+  // -------------------------
+  // Handle Image Upload
+  // -------------------------
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
 
-# #     elif goal == "weight_gain":
-# #         if calories > 300:
-# #             recommendations.append("Good high-energy food for weight gain.")
-# #         else:
-# #             recommendations.append("Add more calorie-dense foods with this meal.")
-
-# #     elif goal == "maintain":
-# #         recommendations.append("Consume in moderate portion to maintain weight.")
-
-# #     # Disease-based
-# #     if disease == "diabetes":
-# #         if sugar > 10:
-# #             recommendations.append("High sugar – not recommended for diabetes.")
-# #     if disease == "hypertension":
-# #         if sodium > 400:
-# #             recommendations.append("High sodium – avoid for blood pressure patients.")
-
-# #     # General
-# #     if calories < 150:
-# #         recommendations.append("Low calorie – healthy light option.")
-
-# #     return recommendations
-
-# # # -----------------------------
-# # # Nutrition Prediction Endpoint
-# # # -----------------------------
-# # @app.post("/predict")
-# # async def predict(file: UploadFile = File(...), weight: float = Form(...)):
-# #     # Save file temporarily
-# #     file_location = f"temp_{file.filename}"
-# #     with open(file_location, "wb") as f:
-# #         f.write(await file.read())
-
-# #     # Predict nutrition
-# #     result = predict_nutrients(file_location, weight)
-
-# #     # Remove temp file
-# #     if os.path.exists(file_location):
-# #         os.remove(file_location)
-
-# #     # Return nutrition ONLY, frontend will handle user input for recommendation
-# #     return result
-
-# # # -----------------------------
-# # # Recommendation Endpoint
-# # # -----------------------------
-# # @app.post("/recommend")
-# # async def recommend(
-# #     calories: float = Form(0.0),
-# #     protein: float = Form(0.0),
-# #     carbohydrates: float = Form(0.0),
-# #     fats: float = Form(0.0),
-# #     fiber: float = Form(0.0),
-# #     sugars: float = Form(0.0),
-# #     sodium: float = Form(0.0),
-# #     goal: str = Form("maintain"),
-# #     disease: str = Form(None)
-# # ):
-# #     try:
-# #         nutrition = {
-# #             "calories": float(calories),
-# #             "protein": float(protein),
-# #             "carbohydrates": float(carbohydrates),
-# #             "fats": float(fats),
-# #             "fiber": float(fiber),
-# #             "sugars": float(sugars),
-# #             "sodium": float(sodium)
-# #         }
-# #         recs = generate_recommendation(nutrition, goal, disease)
-# #         return {"recommendations": recs, "goal": goal, "disease": disease}
-# #     except Exception as e:
-# #         return {"error": str(e)}
-
-# # # Run server
-# # if __name__ == "__main__":
-# #     import uvicorn
-# #     port = int(os.environ.get("PORT", 8000))
-# #     uvicorn.run("main:app", host="0.0.0.0", port=port)
-
-# from fastapi import FastAPI, UploadFile, File, Form
-# from fastapi.middleware.cors import CORSMiddleware
-# from predict_nutrient import predict_nutrients
-# from download_model import download_model
-# import os
-# import requests
-
-# app = FastAPI()
-
-# # Ensure model is downloaded
-# download_model()
-
-# # Enable CORS
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],  # change in production
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# # -----------------------------
-# # 🔥 AI Recommendation (Qwen via API)
-# # -----------------------------
-# def generate_ai_recommendation(nutrition, goal, disease):
-
-#     prompt = f"""
-# You are a professional nutritionist AI.
-
-# User Goal: {goal}
-# Disease: {disease}
-
-# Nutrition Values:
-# Calories: {nutrition.get('calories')}
-# Protein: {nutrition.get('protein')}
-# Carbohydrates: {nutrition.get('carbohydrates')}
-# Fats: {nutrition.get('fats')}
-# Fiber: {nutrition.get('fiber')}
-# Sugars: {nutrition.get('sugars')}
-# Sodium: {nutrition.get('sodium')}
-
-# Give response in this format:
-# 1. Health Verdict (Healthy / Unhealthy)
-# 2. Reason
-# 3. 3-5 practical suggestions
-# """
-
-#     response = requests.post(
-#         "https://openrouter.ai/api/v1/chat/completions",
-#         headers={
-#             "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
-#             "Content-Type": "application/json"
-#         },
-#         json={
-#             "model": "qwen/qwen-7b-chat",
-#             "messages": [
-#                 {"role": "user", "content": prompt}
-#             ]
-#         }
-#     )
-
-#     return response.json()["choices"][0]["message"]["content"]
-
-
-# # -----------------------------
-# # Nutrition Prediction Endpoint
-# # -----------------------------
-# @app.post("/predict")
-# async def predict(file: UploadFile = File(...), weight: float = Form(...)):
-
-#     file_location = f"temp_{file.filename}"
-#     with open(file_location, "wb") as f:
-#         f.write(await file.read())
-
-#     result = predict_nutrients(file_location, weight)
-
-#     if os.path.exists(file_location):
-#         os.remove(file_location)
-
-#     return result
-
-
-# # -----------------------------
-# # 🔥 Recommendation Endpoint (UPDATED)
-# # -----------------------------
-# @app.post("/recommend")
-# async def recommend(
-#     calories: float = Form(0.0),
-#     protein: float = Form(0.0),
-#     carbohydrates: float = Form(0.0),
-#     fats: float = Form(0.0),
-#     fiber: float = Form(0.0),
-#     sugars: float = Form(0.0),
-#     sodium: float = Form(0.0),
-#     goal: str = Form("maintain"),
-#     disease: str = Form(None)
-# ):
-#     try:
-#         nutrition = {
-#             "calories": float(calories),
-#             "protein": float(protein),
-#             "carbohydrates": float(carbohydrates),
-#             "fats": float(fats),
-#             "fiber": float(fiber),
-#             "sugars": float(sugars),
-#             "sodium": float(sodium)
-#         }
-
-#         ai_response = generate_ai_recommendation(nutrition, goal, disease)
-
-#         return {
-#             "recommendations": [ai_response],
-#             "goal": goal,
-#             "disease": disease
-#         }
-
-#     except Exception as e:
-#         return {"error": str(e)}
-
-
-# # Run server
-# if __name__ == "__main__":
-#     import uvicorn
-#     port = int(os.environ.get("PORT", 8000))
-#     uvicorn.run("main:app", host="0.0.0.0", port=port)
-
-
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.middleware.cors import CORSMiddleware
-from predict_nutrient import predict_nutrients
-from download_model import download_model
-import os
-import requests
-import time
-
-app = FastAPI()
-
-# -----------------------------
-# Load Model
-# -----------------------------
-download_model()
-
-# -----------------------------
-# CORS
-# -----------------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# -----------------------------
-# HF CONFIG
-# -----------------------------
-HF_TOKEN = "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"
-
-# Primary (DeepSeek)
-HF_URL_PRIMARY = "https://router.huggingface.co/hf-inference/models/deepseek-ai/DeepSeek-V3"
-
-# Fallback (Mistral)
-HF_URL_FALLBACK = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct"
-
-
-# -----------------------------
-# AI FUNCTION
-# -----------------------------
-def call_model(url, payload, headers):
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
-        data = response.json()
-
-        if isinstance(data, list) and "generated_text" in data[0]:
-            return data[0]["generated_text"]
-
-        if isinstance(data, list):
-            return str(data[0])
-
-        if isinstance(data, dict):
-            if "error" in data:
-                return None
-            return str(data)
-
-    except:
-        return None
-
-
-def generate_ai_recommendation(nutrition, goal, disease, age, gender):
-
-    prompt = f"""
-You are a professional nutrition expert.
-
-User:
-Age: {age}
-Gender: {gender}
-Goal: {goal}
-Disease: {disease}
-
-Nutrition:
-Calories: {nutrition['calories']}
-Protein: {nutrition['protein']}
-Carbs: {nutrition['carbohydrates']}
-Fats: {nutrition['fats']}
-Fiber: {nutrition['fiber']}
-Sugar: {nutrition['sugars']}
-Sodium: {nutrition['sodium']}
-
-Give clear diet advice in 5 lines.
-"""
-
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}"
+  // -------------------------
+  // Predict Nutrition
+  // -------------------------
+  const handlePredict = async () => {
+    if (!file) {
+      alert("Please select an image");
+      return;
     }
 
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 200
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("weight", weight);
+
+    try {
+      setLoading(true);
+
+      const res = await axios.post(
+        `${BACKEND_URL}/predict`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         }
+      );
+
+      setNutrition(res.data);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      alert("Prediction failed");
+      setLoading(false);
     }
+  };
 
-    # Try DeepSeek first
-    for _ in range(2):
-        result = call_model(HF_URL_PRIMARY, payload, headers)
-        if result:
-            return result
-        time.sleep(2)
+  // -------------------------
+  // Get AI Recommendation
+  // -------------------------
+  const handleRecommend = async () => {
+    if (!nutrition) return;
 
-    # Fallback → Mistral
-    for _ in range(2):
-        result = call_model(HF_URL_FALLBACK, payload, headers)
-        if result:
-            return result
-        time.sleep(2)
+    const formData = new FormData();
 
-    return "AI not responding, try again."
+    formData.append("calories", nutrition.calories);
+    formData.append("protein", nutrition.protein);
+    formData.append("carbohydrates", nutrition.carbohydrates);
+    formData.append("fats", nutrition.fats);
+    formData.append("fiber", nutrition.fiber);
+    formData.append("sugars", nutrition.sugars);
+    formData.append("sodium", nutrition.sodium);
 
+    formData.append("age", age);
+    formData.append("gender", gender);
+    formData.append("goal", goal);
+    formData.append("disease", disease);
 
-# -----------------------------
-# Predict
-# -----------------------------
-@app.post("/predict")
-async def predict(file: UploadFile = File(...), weight: float = Form(...)):
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/recommend`,
+        formData
+      );
 
-    file_location = f"temp_{file.filename}"
-
-    with open(file_location, "wb") as f:
-        f.write(await file.read())
-
-    result = predict_nutrients(file_location, weight)
-
-    if os.path.exists(file_location):
-        os.remove(file_location)
-
-    return result
-
-
-# -----------------------------
-# Recommend
-# -----------------------------
-@app.post("/recommend")
-async def recommend(
-    calories: float = Form(...),
-    protein: float = Form(...),
-    carbohydrates: float = Form(...),
-    fats: float = Form(...),
-    fiber: float = Form(...),
-    sugars: float = Form(...),
-    sodium: float = Form(...),
-
-    age: int = Form(0),
-    gender: str = Form("unknown"),
-    goal: str = Form("maintain"),
-    disease: str = Form("")
-):
-
-    nutrition = {
-        "calories": calories,
-        "protein": protein,
-        "carbohydrates": carbohydrates,
-        "fats": fats,
-        "fiber": fiber,
-        "sugars": sugars,
-        "sodium": sodium
+      setRecommendation(res.data.recommendations[0]);
+    } catch (err) {
+      console.error(err);
+      alert("Recommendation failed");
     }
+  };
 
-    ai_response = generate_ai_recommendation(
-        nutrition,
-        goal,
-        disease,
-        age,
-        gender
-    )
+  return (
+    <div style={{ padding: 20, fontFamily: "Arial" }}>
+      <h1>🍎 Nutrition AI App</h1>
 
-    return {
-        "recommendations": [ai_response],
-        "status": "success"
-    }
+      {/* ---------------- Upload Section ---------------- */}
+      <div>
+        <h3>Upload Food Image</h3>
 
+        <input type="file" onChange={handleFileChange} />
+        <br /><br />
 
-# -----------------------------
-@app.get("/")
-def home():
-    return {"message": "Nutrition AI Running 🚀"}
+        <input
+          type="number"
+          placeholder="Weight (grams)"
+          value={weight}
+          onChange={(e) => setWeight(e.target.value)}
+        />
+
+        <br /><br />
+
+        <button onClick={handlePredict}>
+          {loading ? "Processing..." : "Predict Nutrition"}
+        </button>
+      </div>
+
+      {/* ---------------- Nutrition Result ---------------- */}
+      {nutrition && (
+        <div style={{ marginTop: 20 }}>
+          <h3>📊 Nutrition Result</h3>
+          <p><b>Food:</b> {nutrition.label}</p>
+          <p><b>Calories:</b> {nutrition.calories}</p>
+          <p><b>Protein:</b> {nutrition.protein}</p>
+          <p><b>Carbs:</b> {nutrition.carbohydrates}</p>
+          <p><b>Fats:</b> {nutrition.fats}</p>
+          <p><b>Fiber:</b> {nutrition.fiber}</p>
+          <p><b>Sugars:</b> {nutrition.sugars}</p>
+          <p><b>Sodium:</b> {nutrition.sodium}</p>
+        </div>
+      )}
+
+      {/* ---------------- User Inputs ---------------- */}
+      {nutrition && (
+        <div style={{ marginTop: 20 }}>
+          <h3>👤 Your Details</h3>
+
+          <input
+            type="number"
+            placeholder="Age"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+          />
+          <br /><br />
+
+          <select value={gender} onChange={(e) => setGender(e.target.value)}>
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+
+          <br /><br />
+
+          <select value={goal} onChange={(e) => setGoal(e.target.value)}>
+            <option value="maintain">Maintain Weight</option>
+            <option value="loss">Lose Weight</option>
+            <option value="gain">Gain Weight</option>
+          </select>
+
+          <br /><br />
+
+          <input
+            type="text"
+            placeholder="Disease (optional)"
+            value={disease}
+            onChange={(e) => setDisease(e.target.value)}
+          />
+
+          <br /><br />
+
+          <button onClick={handleRecommend}>
+            Get AI Recommendation
+          </button>
+        </div>
+      )}
+
+      {/* ---------------- Recommendation ---------------- */}
+      {recommendation && (
+        <div style={{ marginTop: 20 }}>
+          <h3>🤖 AI Recommendation</h3>
+          <p>{recommendation}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
