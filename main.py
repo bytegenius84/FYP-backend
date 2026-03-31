@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-const BACKEND_URL = "https://your-backend-url.up.railway.app"; // 🔥 CHANGE THIS
+const BACKEND_URL = "https://fyp-backend-production-82be.up.railway.app"; // 🔥 CHANGE THIS
 
 function App() {
   const [file, setFile] = useState(null);
